@@ -14,31 +14,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const client_1 = require("@prisma/client");
 const express_1 = __importDefault(require("express"));
-const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
-const admin_1 = require("../middleware/admin");
 const zodValidation_1 = require("../zodValidation");
 const prisma = new client_1.PrismaClient();
 const router = express_1.default.Router();
-router.get("/me", admin_1.adminAuthenticateJwt, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const id = req.headers["adminId"];
-    const email = req.headers["email"];
-    const role = req.headers["role"];
-    const admin = yield prisma.admin.findUnique({
-        where: {
-            email: email
-        }
-    });
-    if (!admin) {
-        res.status(403).json({ msg: "Admin doesn't exist" });
-        return;
-    }
-    else {
-        res.json({
-            adminid: admin.id,
-            email: admin.email,
-        });
-    }
-}));
 router.post("/signup", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const parsedInput = zodValidation_1.signupInput.safeParse(req.body);
     if (!parsedInput.success) {
@@ -58,8 +36,7 @@ router.post("/signup", (req, res) => __awaiter(void 0, void 0, void 0, function*
     if (admin) {
         if (admin.password == password) {
             console.log("Admin exists");
-            const token = jsonwebtoken_1.default.sign({ email: email, adminId: admin.id, role: 'Admin' }, admin_1.SECRET, { expiresIn: '1h' });
-            res.json({ message: "Admin logged in", token });
+            res.json({ message: "Admin logged in" });
             return;
         }
         else {
@@ -78,20 +55,7 @@ router.post("/signup", (req, res) => __awaiter(void 0, void 0, void 0, function*
             });
             if (createAdmin) {
                 console.log("Admin created");
-                const token = jsonwebtoken_1.default.sign({ email: email, adminId: createAdmin.id, role: 'Admin' }, admin_1.SECRET, { expiresIn: '1h' });
-                let adminId = null;
-                jsonwebtoken_1.default.verify(token, admin_1.SECRET, (err, payload) => {
-                    if (err || !payload || typeof payload == "string") {
-                        return res.sendStatus(403);
-                    }
-                    adminId = payload.adminId;
-                });
-                if (adminId) {
-                    res.json({ message: "Admin logged in", token, email, adminId });
-                }
-                else {
-                    res.json({ message: "try again later" });
-                }
+                res.json({ message: "Admin created", email });
             }
             else {
                 res.json({ message: "try again later" });
@@ -113,8 +77,7 @@ router.post("/login", (req, res) => __awaiter(void 0, void 0, void 0, function* 
     });
     if (admin) {
         if (admin.password == password) {
-            const token = jsonwebtoken_1.default.sign({ email: email, adminId: admin.id, role: 'Admin' }, admin_1.SECRET, { expiresIn: '1h' });
-            res.json({ message: "Logged in successfully", token, email, adminId });
+            res.json({ message: "Logged in successfully", email, adminId });
         }
         else {
             res.json({ message: "Invalid username or password" });
@@ -124,8 +87,8 @@ router.post("/login", (req, res) => __awaiter(void 0, void 0, void 0, function* 
         res.json({ message: "Invalid username or password" });
     }
 }));
-router.post('/createCourse', admin_1.adminAuthenticateJwt, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const { title, description, price, imgLink, published } = req.body;
+router.post('/createCourse', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { title, description, price, imgLink, published, email } = req.body;
     const adminId = req.headers["adminId"];
     console.log("adminId :- " + adminId);
     const course = yield prisma.course.create({
@@ -137,7 +100,8 @@ router.post('/createCourse', admin_1.adminAuthenticateJwt, (req, res) => __await
             published: published,
             admin: {
                 connect: {
-                    id: parseInt(adminId),
+                    // id: parseInt(adminId),
+                    email: email
                 }
             }
         }
@@ -150,7 +114,7 @@ router.post('/createCourse', admin_1.adminAuthenticateJwt, (req, res) => __await
         res.json({ message: "Couldn't add course" });
     }
 }));
-router.put('/courses/:courseId', admin_1.adminAuthenticateJwt, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+router.put('/courses/:courseId', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const courseId = req.params.courseId;
     const { title, description, price, published, imgLink } = req.body;
     const course = yield prisma.course.update({
@@ -173,18 +137,24 @@ router.put('/courses/:courseId', admin_1.adminAuthenticateJwt, (req, res) => __a
         res.json({ message: "Error while updating" });
     }
 }));
-router.get('/courses', admin_1.adminAuthenticateJwt, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+router.get('/courses/:adminEmail', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const adminId = req.headers["adminId"];
+    const email = req.params.adminEmail;
     const courses = yield prisma.course.findMany({
         where: {
             admin: {
-                id: parseInt(adminId)
+                email: email
             }
         }
     });
-    res.json({ courses });
+    const admin = yield prisma.admin.findUnique({
+        where: {
+            email: email
+        }
+    });
+    res.json({ courses, adminId: admin === null || admin === void 0 ? void 0 : admin.id, email });
 }));
-router.get('/courses/:courseId', admin_1.adminAuthenticateJwt, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+router.get('/courses/:courseId/getone', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const courseId = req.params.courseId;
     const adminId = req.headers["adminId"];
     const course = yield prisma.course.findUnique({
@@ -192,6 +162,6 @@ router.get('/courses/:courseId', admin_1.adminAuthenticateJwt, (req, res) => __a
             id: parseInt(courseId)
         }
     });
-    res.json({ course, adminId: course === null || course === void 0 ? void 0 : course.adminId });
+    res.json({ course });
 }));
 exports.default = router;
