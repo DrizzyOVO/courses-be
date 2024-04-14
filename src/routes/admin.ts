@@ -66,7 +66,6 @@ router.post("/signup", async (req, res) => {
 
 router.post("/login", async (req, res) => {
     const { email, password } = req.body; 
-    const adminId = req.headers["adminId"]
     const admin = await prisma.admin.findUnique({  
       where: {
         email: email
@@ -75,7 +74,7 @@ router.post("/login", async (req, res) => {
 
     if(admin) { 
         if(admin.password == password) { 
-            res.json({ message: "Logged in successfully", email, adminId }); 
+            res.json({ message: "Logged in successfully", email }); 
         } else { 
             res.json({ message: "Invalid username or password" }) 
         }
@@ -89,8 +88,6 @@ router.post("/login", async (req, res) => {
 
 router.post('/createCourse', async (req, res) => {
     const { title, description, price, imgLink, published, email } = req.body; 
-    const adminId = req.headers["adminId"] as string;  
-    console.log("adminId :- " + adminId); 
     const course = await prisma.course.create({ 
         data: {
             title: title,  
@@ -148,7 +145,6 @@ router.put('/courses/:courseId', async (req, res) => {
 
 router.get('/courses/:adminEmail', async (req, res) => {
 
-    const adminId = req.headers["adminId"] as string;  
     const email = req.params.adminEmail; 
     const courses = await prisma.course.findMany({ 
         where: {
@@ -173,7 +169,6 @@ router.get('/courses/:adminEmail', async (req, res) => {
 router.get('/courses/:courseId/getone', async (req, res) => {
 
     const courseId = req.params.courseId; 
-    const adminId = req.headers["adminId"] as string; 
     const course = await prisma.course.findUnique({ 
         where: {
             id: parseInt(courseId)

@@ -9,7 +9,6 @@ const router = express.Router();
 
 router.post('/signup', async (req, res) => {
   const parsedInput = signupInput.safeParse(req.body);  
-  const userId = req.headers['userId']; 
 
   if(!parsedInput.success){ 
       console.log("Errorrrr");
@@ -55,7 +54,6 @@ router.post('/signup', async (req, res) => {
 
 router.post("/login", async (req, res) => {
   const { email, password } = req.body; 
-  const userId = req.headers["userId"]
   const user = await prisma.user.findUnique({ 
     where: {
       email: email
@@ -65,7 +63,7 @@ router.post("/login", async (req, res) => {
   if(user){ 
     if(user.password == password){ 
       console.log("User exists");
-      res.json({ message: "Logged in successfully", email, userId }); 
+      res.json({ message: "Logged in successfully", email }); 
       return 
     } else { 
       console.log("wrong password"); 
@@ -86,8 +84,6 @@ router.post("/login", async (req, res) => {
 
 
 router.get('/courses/:userEmail', async (req, res) => {
-  // const courses = await Course.find({published: true});
-  // res.json({ courses });
 
   const email = req.params.userEmail; 
 
@@ -166,7 +162,6 @@ router.post("/courses/:courseId/buy", async (req, res) => {
   console.log("reached in backend");
   const courseId = req.params.courseId; 
   const { email } = req.body; 
-  const userId = req.headers["userId"]; 
   const course = await prisma.course.findUnique({ 
     where: {
       id: parseInt(courseId) 
@@ -204,50 +199,6 @@ router.post("/courses/:courseId/buy", async (req, res) => {
 
 })
 
-
-
-
-router.get('/courses/:courseId/:userId', async (req, res) => {
-  console.log("reached in backend");
-  const courseId = req.params.courseId; 
-  const email = req.headers["email"] as string; 
-  const userId = req.headers["userId"]; 
-  const course = await prisma.course.findUnique({ 
-    where: {
-      id: parseInt(courseId) 
-    }
-  }); 
-
-  console.log(course);
-
-  if(course){ 
-    const user = await prisma.user.findUnique({ 
-      where: { 
-        email: email, 
-      }
-    }); 
-    if(user && userId && typeof userId === "number"){ 
-      await prisma.course.update({ 
-        where: {
-          id: parseInt(courseId)
-        }, 
-        data: {
-          users: {
-            connect: {
-              email: email 
-            }
-          }
-        }
-      })
-      res.json({message: "Bought it" })
-    } else { 
-      res.status(403).json({ message: 'user not found' });
-    }
-  } else { 
-    res.status(404).json({ message: 'course not found' });
-  }
-
-});
 
 router.get('/purchasedCourses/:userEmail', async (req, res) => {
 
